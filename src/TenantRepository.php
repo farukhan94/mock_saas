@@ -2,13 +2,14 @@
 
 namespace App;
 
-use PDO;
-
 class TenantRepository
 {
-    private PDO $db;
+    private $db;
 
-    public function __construct(PDO $db)
+    /**
+     * @param PDO|CloudflareD1Handler $db
+     */
+    public function __construct($db)
     {
         $this->db = $db;
     }
@@ -21,8 +22,10 @@ class TenantRepository
 
     public function findByDomain(string $domain): ?array
     {
-        $stmt = $this->db->prepare("SELECT * FROM tenants WHERE domain = :domain LIMIT 1");
-        $stmt->execute(['domain' => strtolower($domain)]);
+        // Cloudflare D1 uses ? for parameters, PDO uses :name
+        // So we'll use a portable ? approach or handle it in the handler
+        $stmt = $this->db->prepare("SELECT * FROM tenants WHERE domain = ? LIMIT 1");
+        $stmt->execute([strtolower($domain)]);
         $result = $stmt->fetch();
         return $result ?: null;
     }
@@ -31,17 +34,17 @@ class TenantRepository
     {
         $stmt = $this->db->prepare("
             INSERT INTO tenants (tenant_name, domain, created_at, updated_at) 
-            VALUES (:name, :domain, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ");
         return $stmt->execute([
-            'name' => $name,
-            'domain' => strtolower($domain)
+            $name,
+            strtolower($domain)
         ]);
     }
 
     public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare("DELETE FROM tenants WHERE id = :id");
-        return $stmt->execute(['id' => $id]);
+        $stmt = $this->db->prepare("DELETE FROM tenants WHERE id = ?");
+        return $stmt->execute([$id]);
     }
 }
